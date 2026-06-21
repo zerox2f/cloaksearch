@@ -1,6 +1,6 @@
 # CloakSearch Remote Server
 
-Remote HTTP/SSE MCP server for web search with full page content extraction, search summaries, and single page content extraction. Built on top of `mrkrsl/cloaksearch`, extended with HTTP/SSE transport, API key authentication, and Docker deployment.
+Remote HTTP/SSE MCP server for web search with full page content extraction, search summaries, and single page content extraction. Built on top of `mrkrsl/web-search-mcp`, extended with HTTP/SSE transport, API key authentication, and Docker deployment.
 
 - **Repo:** [zerox2f/cloaksearch](https://github.com/zerox2f/cloaksearch)
 - **Upstream:** [mrkrsl/web-search-mcp](https://github.com/mrkrsl/web-search-mcp)
