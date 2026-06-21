@@ -8,7 +8,7 @@
 import { SearchEngine } from '../dist/search-engine.js';
 
 async function testSearchEngine(query = 'javascript programming', numResults = 3) {
-  console.log('🔍 Testing Web Search MCP Server - All Engines');
+  console.log('🔍 Testing CloakSearch Server - All Engines');
   console.log('===============================================');
   console.log(`Query: "${query}"`);
   console.log(`Expected results: ${numResults}`);

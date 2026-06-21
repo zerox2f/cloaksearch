@@ -34,6 +34,7 @@ export class SearchEngine {
 
         // Try multiple approaches to get search results, starting with most reliable
         const approaches = [
+          { method: this.tryBrowserGoogleSearch.bind(this), name: 'Browser Google' },
           { method: this.tryBrowserBingSearch.bind(this), name: 'Browser Bing' },
           { method: this.tryBrowserBraveSearch.bind(this), name: 'Browser Brave' },
           { method: this.tryDuckDuckGoSearch.bind(this), name: 'Axios DuckDuckGo' }
@@ -72,7 +73,7 @@ export class SearchEngine {
               }
               
               // If quality is acceptable and this isn't Bing (first engine), return
-              if (qualityScore >= qualityThreshold && approach.name !== 'Browser Bing' && !forceMultiEngine) {
+              if (qualityScore >= qualityThreshold && !forceMultiEngine) {
                 console.log(`[SearchEngine] Good quality results from ${approach.name}, using as primary`);
                 return { results, engine: approach.name };
               }
@@ -96,6 +97,12 @@ export class SearchEngine {
             // Handle browser-specific errors (no cleanup needed since each engine uses dedicated browsers)
             await this.handleBrowserError(error, approach.name);
           }
+        }
+        
+        // After trying all engines, return the best results if any
+        if (bestResults.length > 0) {
+          console.log(`[SearchEngine] All engines exhausted, returning best results from ${bestEngine} (quality: ${bestQuality.toFixed(2)})`);
+          return { results: bestResults, engine: bestEngine };
         }
         
         console.log(`[SearchEngine] All approaches failed, returning empty results`);
@@ -129,7 +136,6 @@ export class SearchEngine {
         browser = await firefox.launch({
           headless: process.env.BROWSER_HEADLESS !== 'false',
           args: [
-            '--no-sandbox',
             '--disable-dev-shm-usage',
           ],
         });
@@ -209,6 +215,85 @@ export class SearchEngine {
       }
     } catch (error) {
       console.error(`[SearchEngine] Browser Brave search failed:`, error);
+      throw error;
+    }
+  }
+
+  private async tryBrowserGoogleSearch(query: string, numResults: number, timeout: number): Promise<SearchResult[]> {
+    console.log(`[SearchEngine] Trying browser-based Google search with dedicated browser...`);
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      let browser;
+      try {
+        const { launch } = await import('cloakbrowser');
+        browser = await launch({
+          headless: process.env.BROWSER_HEADLESS !== 'false',
+          humanize: true,
+          args: ['--no-sandbox', '--disable-dev-shm-usage']
+        });
+        console.log(`[SearchEngine] Browser Google search attempt ${attempt}/2 with fresh browser`);
+        const results = await this.tryBrowserGoogleSearchInternal(browser, query, numResults, timeout);
+        return results;
+      } catch (error) {
+        console.error(`[SearchEngine] Google search attempt ${attempt}/2 failed:`, error);
+        if (attempt === 2) throw error;
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } finally {
+        if (browser) {
+          try { await browser.close(); } catch (closeError) { console.log(`[SearchEngine] Error closing Google browser:`, closeError); }
+        }
+      }
+    }
+    throw new Error('All Google search attempts failed');
+  }
+
+  private async tryBrowserGoogleSearchInternal(browser: any, query: string, numResults: number, timeout: number): Promise<SearchResult[]> {
+    if (!browser.isConnected()) {
+      throw new Error('Browser is not connected');
+    }
+    try {
+      // Enhanced browser context with more realistic fingerprinting
+      const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        viewport: { width: 1366, height: 768 },
+        locale: 'en-US',
+        timezoneId: 'America/New_York',
+        colorScheme: 'light',
+        deviceScaleFactor: 1,
+        hasTouch: false,
+        isMobile: false,
+        extraHTTPHeaders: {
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'DNT': '1',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none'
+        }
+      });
+      try {
+        const page = await context.newPage();
+        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&source=web`;
+        console.log(`[SearchEngine] Browser Google navigating to: ${searchUrl}`);
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout });
+        try {
+          await page.waitForSelector('div.g, .tF2Cxc, h3', { timeout: 4000 });
+        } catch {
+          console.log(`[SearchEngine] Browser Google results selector not found, proceeding anyway`);
+        }
+        const html = await page.content();
+        console.log(`[SearchEngine] Browser Google got HTML with length: ${html.length}`);
+        const results = this.parseSearchResults(html, numResults);
+        console.log(`[SearchEngine] Browser Google parsed ${results.length} results`);
+        await context.close();
+        return results;
+      } catch (error) {
+        await context.close();
+        throw error;
+      }
+    } catch (error) {
+      console.error(`[SearchEngine] Browser Google search failed:`, error);
       throw error;
     }
   }
@@ -503,7 +588,7 @@ export class SearchEngine {
     console.log(`[SearchEngine] Trying DuckDuckGo as fallback...`);
     
     try {
-      const response = await axios.get('https://html.duckduckgo.com/html/', {
+      const response = await axios.get('https://duckduckgo.com/html/', {
         params: {
           q: query,
         },
@@ -512,12 +597,14 @@ export class SearchEngine {
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.5',
           'Accept-Encoding': 'gzip, deflate',
+          'Referer': 'https://duckduckgo.com/',
+          'Origin': 'https://duckduckgo.com',
           'DNT': '1',
           'Connection': 'keep-alive',
           'Upgrade-Insecure-Requests': '1',
         },
         timeout,
-        validateStatus: (status: number) => status < 400,
+        validateStatus: (status: number) => status < 400 || status === 202,
       });
 
       console.log(`[SearchEngine] DuckDuckGo got response with status: ${response.status}`);
@@ -893,39 +980,65 @@ export class SearchEngine {
 
   private parseDuckDuckGoResults(html: string, maxResults: number): SearchResult[] {
     console.log(`[SearchEngine] Parsing DuckDuckGo HTML with length: ${html.length}`);
-    
+
     const $ = cheerio.load(html);
     const results: SearchResult[] = [];
     const timestamp = generateTimestamp();
 
-    // DuckDuckGo results are in .result elements
-    $('.result').each((_index, element) => {
-      if (results.length >= maxResults) return false;
+    const selectors = [
+      '.result',
+      '.web-result',
+      'article',
+      '.links_deep',
+      // fallback to broader layout wrappers
+      '.results',
+      '#links',
+    ];
 
-      const $element = $(element);
-      
-      // Extract title and URL
-      const $titleElement = $element.find('.result__title a');
-      const title = $titleElement.text().trim();
-      const url = $titleElement.attr('href');
-      
-      // Extract snippet
-      const snippet = $element.find('.result__snippet').text().trim();
-      
-      if (title && url) {
-        console.log(`[SearchEngine] DuckDuckGo found: "${title}" -> "${url}"`);
-        results.push({
-          title,
-          url: this.cleanDuckDuckGoUrl(url),
-          description: snippet || 'No description available',
-          fullContent: '',
-          contentPreview: '',
-          wordCount: 0,
-          timestamp,
-          fetchStatus: 'success',
-        });
-      }
-    });
+    let usedSelector: string | undefined;
+
+    for (const selector of selectors) {
+      if (results.length >= maxResults) break;
+
+      const elements = $(selector);
+      if (!elements.length) continue;
+
+      usedSelector = selector;
+      console.log(`[SearchEngine] DuckDuckGo parsing with selector: ${selector} (${elements.length})`);
+
+      elements.each((_index, element) => {
+        if (results.length >= maxResults) return false;
+
+        const $element = $(element);
+
+        const $titleElement = $element.find('.result__title a, h2 a, .result__a');
+        const title = $titleElement.text().trim();
+        const url = $titleElement.attr('href');
+
+        const snippet =
+          $element.find('.result__snippet, .result__excerpt, .abstract, snippet').text().trim();
+
+        if (title && url) {
+          console.log(`[SearchEngine] DuckDuckGo found: "${title}" -> "${url}"`);
+          results.push({
+            title,
+            url: this.cleanDuckDuckGoUrl(url),
+            description: snippet || 'No description available',
+            fullContent: '',
+            contentPreview: '',
+            wordCount: 0,
+            timestamp,
+            fetchStatus: 'success',
+          });
+        }
+      });
+
+      if (results.length) break;
+    }
+
+    if (!usedSelector) {
+      console.log(`[SearchEngine] DuckDuckGo no known result containers found`);
+    }
 
     console.log(`[SearchEngine] DuckDuckGo found ${results.length} results`);
     return results;
@@ -1023,9 +1136,15 @@ export class SearchEngine {
     if (results.length === 0) return 0;
 
     // Extract keywords from the original query (ignore common words)
-    const commonWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'group', 'members']);
-    const queryWords = originalQuery.toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
+    const commonWords = new Set([
+      'the','a','an','and','or','but','in','on','at','to','for','of','with','by','is','are','was','were','be','been','have','has','had','do','does','did','will','would','could','should','may','might','must','can','group','members',
+      // Vietnamese stopwords / filler words
+      'của','và','có','cho','với','được','mà','thì','nên','phải','cũng','về','đến','tại','hay','đó','đây','khi','sau','trước','trên','dưới','giữa','bên','ngoài','như','nhiều','ít','lớn','nhỏ','cao','thấp','đồng','tiền','vẫn','đã','sẽ','này','hay','liệu','sao','nghĩ','nói','thấy','biết','cần','muốn','thường','xuyên','luôn','còn','bởi','do','vì','tuy','dù','rằng','nếu','không','thể','chắc','hẳn','chỉ','mới','kia','nọ','được','cho','từ','của','người','việc','thời','gian','nơi','chỗ','trao','cho','gần','xa','lên','xuống','qua','lại','theo','nhau','đây','đó'
+    ]);
+    const queryWords = originalQuery
+      .normalize('NFKC')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
       .split(/\s+/)
       .filter(word => word.length > 2 && !commonWords.has(word));
 

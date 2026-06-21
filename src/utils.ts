@@ -33,7 +33,9 @@ export function validateUrl(url: string): boolean {
 }
 
 export function sanitizeQuery(query: string): string {
-  return query.trim().substring(0, 1000); // Limit query length
+  // Normalize whitespace and truncate to limit, but keep Unicode case/vietnamese diacritics
+  const trimmed = query.replace(/\s+/g, ' ').trim();
+  return trimmed.substring(0, 1000);
 }
 
 export function getRandomUserAgent(): string {
