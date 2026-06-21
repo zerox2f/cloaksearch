@@ -1,8 +1,8 @@
-# Web Search MCP Server - API Documentation
+# CloakSearch - API Documentation
 
 ## Overview
 
-The Web Search MCP Server provides three tools for web searching and content extraction:
+The CloakSearch provides three tools for web searching and content extraction:
 
 1. **`full-web-search`** - Comprehensive web search with full content extraction (primary tool)
 2. **`get-web-search-summaries`** - Lightweight search returning only result snippets  
@@ -303,7 +303,7 @@ The server implements rate limiting to respect Google's terms of service:
 {
   "mcpServers": {
     "web-search": {
-      "command": "web-search-mcp",
+      "command": "cloaksearch",
       "args": [],
       "env": {
         "GOOGLE_SEARCH_TIMEOUT": "15000",
@@ -319,7 +319,7 @@ The server implements rate limiting to respect Google's terms of service:
 {
   "mcpServers": {
     "web-search": {
-      "command": "/usr/local/bin/web-search-mcp",
+      "command": "/usr/local/bin/cloaksearch",
       "args": []
     }
   }
@@ -365,7 +365,7 @@ The server implements rate limiting to respect Google's terms of service:
 ### Debug Mode
 Enable debug logging by setting the environment variable:
 ```bash
-export DEBUG=web-search-mcp:*
+export DEBUG=cloaksearch:*
 ```
 
 ## Support

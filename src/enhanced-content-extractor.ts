@@ -12,7 +12,8 @@ export class EnhancedContentExtractor {
   private fallbackThreshold: number;
 
   constructor() {
-    this.defaultTimeout = parseInt(process.env.DEFAULT_TIMEOUT || '6000', 10);
+    // Tăng timeout mặc định lên 15s để trang Việt Nam tải đủ
+    this.defaultTimeout = parseInt(process.env.DEFAULT_TIMEOUT || '15000', 10);
     
     // Read MAX_CONTENT_LENGTH from environment variable, fallback to 500KB
     const envMaxLength = process.env.MAX_CONTENT_LENGTH;
@@ -169,7 +170,7 @@ export class EnhancedContentExtractor {
       try {
         await page.goto(url, { 
           waitUntil: 'domcontentloaded', // Don't wait for all resources
-          timeout: Math.min(timeout, 8000) // Reduced timeout, max 8 seconds
+          timeout: timeout
         });
       } catch (gotoError) {
         // Handle specific protocol errors
@@ -205,7 +206,7 @@ export class EnhancedContentExtractor {
           
           await http1Page.goto(url, { 
             waitUntil: 'domcontentloaded',
-            timeout: Math.min(timeout, 6000)
+            timeout: timeout
           });
           
           // Quick content extraction
@@ -226,7 +227,7 @@ export class EnhancedContentExtractor {
 
       // Quick check for main content without long wait
       try {
-        await page.waitForSelector('article, main, .content, .post-content, .entry-content', {
+        await page.waitForSelector('article, main, .content, .post-content, .entry-content, #blog_Detail_Page, .detail_blog, .archives', {
           timeout: 2000
         });
       } catch {
@@ -412,11 +413,11 @@ export class EnhancedContentExtractor {
         // Use a race condition with timeout to prevent hanging
         const extractionPromise = this.extractContent({ 
           url: result.url, 
-          timeout: 6000 // Reduced timeout to 6 seconds per page
+          timeout: this.defaultTimeout
         });
         
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Content extraction timeout')), 8000);
+          setTimeout(() => reject(new Error('Content extraction timeout')), this.defaultTimeout + 2000);
         });
         
         const content = await Promise.race([extractionPromise, timeoutPromise]);
@@ -499,6 +500,9 @@ export class EnhancedContentExtractor {
       'main',
       '[role="main"]',
       '.content',
+      '#blog_Detail_Page', 
+      '.detail_blog', 
+      '.archives',
       '.post-content',
       '.entry-content',
       '.article-content',

@@ -1,0 +1,31 @@
+services:
+  cloaksearch:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cloaksearch
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - SERVICE_API_KEY=${SERVICE_API_KEY:-change-me-in-production}
+      - PORT=3000
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - cloaksearch-net
+    labels:
+      - "com.openclaw.service=cloaksearch"
+      - "com.openclaw.description=CloakSearch HTTP/SSE Server"
+
+networks:
+  cloaksearch-net:
+    driver: bridge

@@ -1,17 +1,21 @@
 {
-  "name": "web-search-mcp-server",
+  "name": "cloaksearch",
   "version": "0.3.1",
   "description": "MCP server for web search with full page content extraction, search summaries, and single page content extraction",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "web-search-mcp": "./dist/index.js"
+    "cloaksearch": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc && echo '✅ TypeScript compilation complete: dist/index.js'",
-    "dev": "tsx watch src/index.ts",
+    "build": "tsc --pretty",
+    "build:watch": "tsc --watch --preserveWatchOutput",
+    "dev:stdio": "tsx watch src/index.ts",
+    "dev:remote": "tsx watch src/http-server-entry.ts",
     "start": "node ./dist/index.js",
+    "start:remote": "node ./dist/http-server-entry.js",
+    "typecheck": "tsc --noEmit --pretty",
     "lint": "eslint \"src/**/*.ts\"",
     "format": "prettier --write ."
   },
@@ -24,26 +28,30 @@
   "author": "Mark Russell",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mrkrsl/web-search-mcp.git"
+    "url": "https://github.com/zerox2f/cloaksearch.git"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.15.0",
     "axios": "^1.6.8",
     "cheerio": "^1.0.0-rc.12",
-    "p-limit": "^6.2.0",
-    "p-retry": "^6.2.1",
+    "cloakbrowser": "^0.3.32",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "p-limit": "^7.3.0",
+    "p-retry": "^8.0.0",
     "playwright": "^1.48.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
+    "@types/express": "^4.17.25",
     "@types/node": "^24.0.10",
     "@typescript-eslint/eslint-plugin": "^8.35.1",
     "@typescript-eslint/parser": "^8.35.1",
     "esbuild": "^0.25.5",
     "eslint": "^9.30.1",
     "prettier": "^3.2.5",
-    "tsx": "^4.7.0",
+    "tsx": "^4.22.4",
     "typescript": "^5.4.5"
   }
 }
