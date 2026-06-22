@@ -1,6 +1,6 @@
 # PLAN.md – CloakSearch Remote HTTP/SSE Conversion
 
-**Source:** `mrkrsl/cloaksearch` @ main (v0.3.1)
+**Source:** `mrkrsl/web-search-mcp` @ main (v0.3.1)
 **Fork:** `zerox2f/cloaksearch`
 **Target:** Remote MCP server qua HTTP/SSE, deployable Docker
 **Security:** API key gate trên mỗi request
@@ -28,7 +28,7 @@
 ## 1. Fork + baseline
 **Owner:** anh P.Q  
 **Ngày:** 2026-06-20  
-**Tác động:** Clone `mrkrsl/cloaksearch` về workspace, gọi local là `cloaksearch`.
+**Tác động:** Clone `mrkrsl/web-search-mcp` về workspace, gọi local là `cloaksearch`.
 
 ---
 
